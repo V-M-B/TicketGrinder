@@ -1,0 +1,30 @@
+name: HRMS Autonomous Bot
+on:
+  schedule:
+    - cron: '0 * * * *' # Runs exactly every hour (at minute 0)
+  workflow_dispatch: # Still allows you to run it manually whenever you want
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: |
+          npm install
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgbm-dev
+
+      - name: Run Bot
+        env:
+          HRMS_USER: ${{ secrets.HRMS_USER }}
+          HRMS_PASS: ${{ secrets.HRMS_PASS }}
+          HRMS_OTP: ${{ secrets.HRMS_OTP }}
+        run: xvfb-run --auto-servernum node bot.js

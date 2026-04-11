@@ -1,11 +1,8 @@
-require('dotenv').config(); // Load variables from .env
+require('dotenv').config();
 const puppeteer = require('puppeteer');
 const Tesseract = require('tesseract.js');
 const sharp = require('sharp');
 
-// ==========================================
-// 1. CONFIGURATION
-// ==========================================
 const CONFIG = {
     credentials: {
         username: process.env.HRMS_USER,
@@ -36,9 +33,6 @@ const CONFIG = {
     }
 };
 
-// ==========================================
-// 2. UTILITY FUNCTIONS
-// ==========================================
 async function solveCaptcha(imageBuffer) {
     const cleanedBuffer = await sharp(imageBuffer)
         .resize({ width: 400 })
@@ -79,14 +73,11 @@ async function handleConfirmationPopup(page) {
     }
 }
 
-// ==========================================
-// 3. CORE PROCESSES
-// ==========================================
 async function performLogin(page) {
     console.log("🌐 Navigating to login...");
     await page.goto(CONFIG.urls.login, { waitUntil: 'networkidle2' });
 
-    console.log("🔑 Entering credentials from .env...");
+    console.log("🔑 Entering credentials...");
     await page.waitForSelector(CONFIG.selectors.username);
     await page.evaluate((u, p) => {
         document.querySelector(u).removeAttribute('readonly');
@@ -124,7 +115,6 @@ async function performLogin(page) {
             await captchaInput.click({ clickCount: 3 });
             await page.keyboard.press('Backspace');
             await page.type(CONFIG.selectors.captchaInput, solvedCaptcha, { delay: 50 });
-            
             await page.keyboard.press('Enter');
 
             try {
@@ -145,7 +135,7 @@ async function performLogin(page) {
         }
     }
 
-    if (!otpScreenReached) throw new Error("Failed to solve CAPTCHA after 10 attempts.");
+    if (!otpScreenReached) throw new Error("Failed to solve CAPTCHA.");
 
     console.log(`🔓 Entering OTP...`);
     const otpInputs = await page.$$(CONFIG.selectors.otpInput);
@@ -171,16 +161,11 @@ async function processTicketQueue(page) {
 
     await page.evaluate(async (baseUrl) => {
         let unprocessableCount = 0;
-
         while (true) {
             try {
                 const fetchUrl = `${baseUrl}intraybymodule/HELPDESK_L1_03/HELPDESK_L1/11?offset=${unprocessableCount}&limit=50&api-version=2&searchKey=`;
                 const getRes = await fetch(fetchUrl);
-
-                if (getRes.status === 401 || getRes.status === 403) {
-                    console.log("🔒 Session expired — rebooting...");
-                    return;
-                }
+                if (getRes.status === 401 || getRes.status === 403) return;
 
                 const data = await getRes.json();
                 const tickets = data.value?.activityInstanceTrayReadDtoList || [];
@@ -192,56 +177,34 @@ async function processTicketQueue(page) {
                     continue;
                 }
 
-                console.log(`📋 Fetched ${tickets.length} tickets (Skipping ${unprocessableCount} dead tickets)`);
-
                 for (let ticket of tickets) {
                     if (JSON.stringify(ticket).toLowerCase().includes('rejected')) {
-                        console.log(`⏭️ Skipped (Rejected): ${ticket.referenceNo}`);
-                        unprocessableCount++; 
-                        continue; 
+                        console.log(`⏭️ Skipped: ${ticket.referenceNo}`);
+                        unprocessableCount++; continue; 
                     }
-
                     const postRes = await fetch(`${baseUrl}${ticket.id}`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                            actionTaken: 14,
-                            activityCode: ticket.activityCode,
-                            activityReference: ticket.referenceNo,
-                            actorCode: "HELPDESK_L1_03",
-                            departmentCode: ticket.departmentCode || "HD",
-                            nextStepNumber: 0,
-                            notes: "Please Check",
-                            officeCode: "DH_STT_HRMS_258",
-                            officeLevelCode: "DH_STT_HRMS_258",
-                            roleCode: "HELPDESK_L1",
-                            stepNumber: ticket.currentStep
+                            actionTaken: 14, activityCode: ticket.activityCode, activityReference: ticket.referenceNo,
+                            actorCode: "HELPDESK_L1_03", roleCode: "HELPDESK_L1", stepNumber: ticket.currentStep,
+                            notes: "Please Check", officeCode: "DH_STT_HRMS_258", officeLevelCode: "DH_STT_HRMS_258"
                         })
                     });
-
-                    console.log(postRes.ok ? `✅ Forwarded to L2: ${ticket.referenceNo}` : `❌ Failed: ${ticket.referenceNo}`);
+                    console.log(postRes.ok ? `✅ Sent: ${ticket.referenceNo}` : `❌ Failed: ${ticket.referenceNo}`);
                     if (!postRes.ok) unprocessableCount++;
-
                     await new Promise(r => setTimeout(r, 1500));
                 }
-            } catch (e) {
-                console.error("Loop error:", e.message);
-                await new Promise(r => setTimeout(r, 5000));
-            }
+            } catch (e) { await new Promise(r => setTimeout(r, 5000)); }
         }
     }, apiBaseUrl);
 }
 
-// ==========================================
-// 4. MAIN CONTROLLER
-// ==========================================
 async function runBot() {
     console.log("🚀 Booting HRMS Robot...");
     const browser = await puppeteer.launch({
         headless: false,
-        defaultViewport: null,
-        args: ['--start-maximized'],
-        channel: 'chrome'
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--start-maximized']
     });
 
     const page = await browser.newPage();
@@ -250,12 +213,10 @@ async function runBot() {
     try {
         await performLogin(page);
         await processTicketQueue(page);
-        
-        console.log("🔄 Session ended naturally. Restarting...");
         await browser.close();
         runBot();
     } catch (error) {
-        console.error("❌ Bot crashed:", error.message, "— Rebooting in 5s...");
+        console.error("❌ Error:", error.message);
         await browser.close();
         setTimeout(runBot, CONFIG.timeouts.rebootDelay);
     }
