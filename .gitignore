@@ -1,0 +1,54 @@
+# dependencies
+/node_modules
+/npm-debug.log*
+/yarn-debug.log*
+/yarn-error.log*
+
+# runtime data
+/pids
+*.pid
+*.seed
+*.pid.lock
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# directories
+/dist
+/build
+
+# vscode
+.vscode/
+
+# env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# misc
+.DS_Store
+
+# optional npm cache folder
+.npm
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# JetBrains
+.idea/
