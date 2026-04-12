@@ -1,7 +1,25 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const puppeteer = require('puppeteer');
 const Tesseract = require('tesseract.js');
 const sharp = require('sharp');
+
+const PHOTO_DIR = path.join(__dirname, 'photo');
+const captureScreenshots = ['1', 'true', 'yes'].includes(
+    String(process.env.SAVE_SCREENSHOTS || '').toLowerCase()
+);
+const readmeDemoExit = ['1', 'true', 'yes'].includes(
+    String(process.env.README_DEMO_EXIT || '').toLowerCase()
+);
+
+async function saveScreenshot(page, filename) {
+    if (!captureScreenshots) return;
+    fs.mkdirSync(PHOTO_DIR, { recursive: true });
+    const filePath = path.join(PHOTO_DIR, filename);
+    await page.screenshot({ path: filePath, fullPage: true });
+    console.log(`📷 Saved ${path.relative(__dirname, filePath)}`);
+}
 
 const CONFIG = {
     credentials: {
@@ -92,6 +110,8 @@ async function runBot() {
             document.querySelector(p).removeAttribute('readonly');
         }, CONFIG.selectors.username, CONFIG.selectors.password);
 
+        await saveScreenshot(page, '01-login-page.png');
+
         await page.type(CONFIG.selectors.username, CONFIG.credentials.username);
         await page.type(CONFIG.selectors.password, CONFIG.credentials.password);
 
@@ -122,6 +142,7 @@ async function runBot() {
                 try {
                     await page.waitForSelector(CONFIG.selectors.otpInput, { timeout: 6000 });
                     otpScreenReached = true;
+                    await saveScreenshot(page, '02-otp-screen.png');
                     console.log("✅ OTP screen reached!");
                 } catch (e) {
                     console.log("❌ Wrong CAPTCHA — retrying...");
@@ -153,8 +174,15 @@ async function runBot() {
 
         console.log("⏳ Waiting for Dashboard...");
         await page.waitForSelector(CONFIG.selectors.dashboardCheck);
+        await saveScreenshot(page, '03-dashboard.png');
         await page.click(CONFIG.selectors.helpdeskModule);
         await new Promise(r => setTimeout(r, 4000));
+        await saveScreenshot(page, '04-helpdesk-module.png');
+
+        if (readmeDemoExit) {
+            console.log("📷 README demo: skipping ticket loop (README_DEMO_EXIT).");
+            return;
+        }
 
         console.log("🔁 Starting Ticket Loop...");
         await page.evaluate(async (baseUrl) => {
@@ -200,6 +228,10 @@ async function runBot() {
         console.error("❌ Crashed:", err.message);
     } finally {
         if (browser) await browser.close();
+        if (readmeDemoExit) {
+            console.log("README demo: exit without reboot.");
+            return;
+        }
         console.log(`🔄 Rebooting in ${CONFIG.timeouts.rebootDelay/1000}s...`);
         setTimeout(runBot, CONFIG.timeouts.rebootDelay);
     }
