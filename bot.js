@@ -5,18 +5,34 @@ const puppeteer = require('puppeteer');
 const Tesseract = require('tesseract.js');
 const sharp = require('sharp');
 
-const PHOTO_DIR = path.join(__dirname, 'photo');
+const SCREENSHOT_DIR = path.join(__dirname, 'Photo');
+const CAPTCHA_DIR = path.join(SCREENSHOT_DIR, 'captchas');
 const captureScreenshots = ['1', 'true', 'yes'].includes(
     String(process.env.SAVE_SCREENSHOTS || '').toLowerCase()
 );
+
+function ensureDir(directory) {
+    fs.mkdirSync(directory, { recursive: true });
+}
+
+async function saveCaptchaCapture(buffer, attempt, code) {
+    ensureDir(CAPTCHA_DIR);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const codeSuffix = code ? `-${code}` : '';
+    const fileName = `captcha-${attempt}${codeSuffix}-${timestamp}.png`;
+    const filePath = path.join(CAPTCHA_DIR, fileName);
+    await fs.promises.writeFile(filePath, buffer);
+    console.log(`🗂️ Saved captcha capture: ${path.relative(__dirname, filePath)}`);
+}
+
 const readmeDemoExit = ['1', 'true', 'yes'].includes(
     String(process.env.README_DEMO_EXIT || '').toLowerCase()
 );
 
 async function saveScreenshot(page, filename) {
     if (!captureScreenshots) return;
-    fs.mkdirSync(PHOTO_DIR, { recursive: true });
-    const filePath = path.join(PHOTO_DIR, filename);
+    ensureDir(SCREENSHOT_DIR);
+    const filePath = path.join(SCREENSHOT_DIR, filename);
     await page.screenshot({ path: filePath, fullPage: true });
     console.log(`📷 Saved ${path.relative(__dirname, filePath)}`);
 }
@@ -130,6 +146,7 @@ async function runBot() {
             });
 
             const code = await solveCaptcha(buffer);
+            await saveCaptchaCapture(buffer, attempts, code);
             console.log(`🎯 Guess: "${code}"`);
             
             if (code.length >= 4) {

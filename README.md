@@ -10,6 +10,10 @@ This repo contains a Node.js bot for the Karnataka HRMS 2.0 portal. It automates
 
 ![HRMS inbox view](Photo/dashboard.jpg)
 
+## Captcha storage
+
+Captured captcha images are now saved to `Photo/captchas/` during login attempts, so the repo root stays clean and all generated bot assets are stored in one place.
+
 ## What this bot does
 
 - Logs into the HRMS portal using configured credentials.
