@@ -48,6 +48,9 @@ yarn-error.log*
 .DS_Store
 
 # Windows
+session.json
+ticket_log.txt
+Photo/captchas/
 Thumbs.db
 
 # JetBrains
