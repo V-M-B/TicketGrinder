@@ -12,9 +12,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
     "dotenv": "^17.4.1",
+    "express": "^5.2.1",
     "puppeteer": "^24.40.0",
     "sharp": "^0.34.5",
     "tesseract.js": "^7.0.0",
-    "undici": "^7.25.0"
+    "undici": "^7.25.0",
+    "ws": "^8.20.0"
   }
 }
